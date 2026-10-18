@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG 知识库问答系统评测</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#ffffff; --ink:#1f2329; --sub:#5b6168;
+    --line:#e5e6eb; --brand:#2f6fed; --brand-soft:#eaf1ff;
+    --warn:#b54708; --warn-bg:#fff7ed; --ok:#15803d; --ok-bg:#f0fdf4;
+    --bad:#b91c1c; --bad-bg:#fef2f2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.7;padding:32px 16px}
+  .wrap{max-width:880px;margin:0 auto}
+  header{background:linear-gradient(135deg,#2f6fed,#1d4ed8);color:#fff;
+    border-radius:16px;padding:36px 32px;margin-bottom:24px}
+  header h1{font-size:26px;font-weight:700;margin-bottom:10px}
+  header p{font-size:15px;opacity:.92}
+  .tag{display:inline-block;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.3);border-radius:999px;
+    padding:4px 12px;font-size:13px;margin-top:14px}
+  h2{font-size:20px;margin:34px 0 14px;padding-left:11px;
+    border-left:4px solid var(--brand)}
+  h3{font-size:16px;margin:22px 0 8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:14px 0;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--brand-soft);color:#1d3a8a;font-weight:600}
+  blockquote{background:var(--brand-soft);border-left:4px solid var(--brand);
+    padding:12px 16px;border-radius:0 10px 10px 0;margin:12px 0;color:#1d3a8a}
+  .warn{background:var(--warn-bg);border:1px solid #fed7aa;color:var(--warn);
+    border-radius:12px;padding:16px 18px;margin:16px 0;font-size:14px}
+  .ok{background:var(--ok-bg);border:1px solid #bbf7d0;color:var(--ok);
+    border-radius:12px;padding:14px 16px;margin:14px 0;font-size:14px}
+  img{max-width:100%;border:1px solid var(--line);border-radius:10px;margin:12px 0;
+    display:block;background:#fff}
+  .num{display:inline-flex;width:26px;height:26px;background:var(--brand);
+    color:#fff;border-radius:50%;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;margin-right:8px;flex:none}
+  .lead{font-size:15px;color:var(--sub)}
+  .muted{color:var(--sub);font-size:13px}
+  footer{margin-top:40px;text-align:center;color:var(--sub);font-size:13px}
+  code{background:#eef0f3;padding:1px 6px;border-radius:5px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>RAG 知识库问答系统评测</h1>
+  <p>从「能跑通」到「知道它什么时候会失败」</p>
+  <span class="tag">扣子（Coze）平台 · 真实官方文档语料 · 四轮对照实验</span>
+</header>
+
+<p class="lead">这不是一个"我搭了个知识库问答"的 Demo，而是一份"我把它的失败测出来了"的评测报告。
+所有结论均基于实测，含两次被证伪的假设与一次语料污染复盘。</p>
+
+<div class="card">
+  <h2 style="margin-top:0">结果速览</h2>
+  <table>
+    <tr><th>指标</th><th>结果</th></tr>
+    <tr><td>事实题正确率</td><td><b>6 / 7（86%）</b></td></tr>
+    <tr><td>查询改写后事实题</td><td><b>7 / 7（100%）</b></td></tr>
+    <tr><td>陷阱题拒答率</td><td><b>3 / 3（100%）</b>，全程零编造</td></tr>
+    <tr><td>半真半假陷阱题</td><td>✅ 正确识别并拒答（文档讲了一半的题）</td></tr>
+    <tr><td>提示词迭代</td><td>v1 → v4，共 4 轮，每轮均有实测数据支撑</td></tr>
+  </table>
+  <p class="muted">语料：4 篇扣子官方文档原文（约 3500 字），非自造测试数据。
+  注：事实题 6/7 中唯一失败的是第 4 题"四种能力"（多跳聚合型），未在干净语料下重测，故保留原始值。</p>
+</div>
+
+<div class="warn">
+  <b>⚠️ 评测污染事件（已确认未生效）</b><br>
+  2026-10-12 发现知识库混入第一轮《AI 入职第一周行动手册》，其第四节明文写着
+  "智能体必须回答'资料中没有提到这一点'"——等于把考试答案放进考试范围（Data Contamination）。
+  处理过程：定位 → 要求清理语料 → 误以为已清理（验证题仍答出）→ 发现未清理 → 真正删除 → 验证题确认干净 → 干净语料重跑陷阱题仍 3/3。
+  <b>结论：污染确实存在，但未实际生效</b>——拒答能力来自平台兜底 + 模型对齐，而非抄文档。
+</div>
+
+<h2>这个项目在做什么</h2>
+<p class="lead">大多数人做完 RAG 的终点是"能回答问题了"。这个项目的起点是：</p>
+<blockquote>它在什么情况下会答错？答错了之后我怎么知道是哪里错了？</blockquote>
+<table>
+  <tr><th>实验类型</th><th>目的</th><th>结论</th></tr>
+  <tr><td>单变量对照实验</td><td>定位检索失败根因</td><td>锁定「词汇不匹配」</td></tr>
+  <tr><td>消融实验</td><td>拆解防幻觉机制</td><td>三层冗余，假设两次被证伪</td></tr>
+  <tr><td>双向验证</td><td>测改进是否牺牲安全性</td><td>有用性↑，安全性未退化</td></tr>
+  <tr><td>重复运行</td><td>量化输出稳定性</td><td>一致率 0，确立重复取样纪律</td></tr>
+</table>
+
+<h2>四条核心发现</h2>
+
+<h3><span class="num">1</span>词汇不匹配是失败诱因之一，但不是主因</h3>
+<p>同一个知识点，只改提问措辞，其余条件全部相同。首次实测：口语版"可以发布给别人用吗"答不出，原文词"自定义插件"答对。</p>
+<p>重跑（语料未变）后口语版也答对了，<b>唯一真实变量是提示词 v1→v3</b>。修正结论：
+<b>失败关键不在用户措辞，而在提示词是否允许模型复用已召回的片段</b>
+（v1 把"未完全匹配"等同于"没有信息"→错误拒答；v3 允许基于部分片段作答→成功）。</p>
+
+<h3><span class="num">2</span>防幻觉是三层冗余的（消融实验，假设两次被证伪）</h3>
+<table>
+  <tr><th>层级</th><th>机制</th><th>结论</th></tr>
+  <tr><td>平台层检索兜底</td><td>检索为空→系统返回"未查询到"</td><td>✅ 主力防线，条件触发</td></tr>
+  <tr><td>提示词·角色设定</td><td>"你是文档问答助手"</td><td>✅ 生效</td></tr>
+  <tr><td>提示词·显式防幻觉约束</td><td>"绝对不要编造"</td><td>⚠️ 完全无召回场景下冗余</td></tr>
+</table>
+
+<h3><span class="num">3</span>"绝对不要编造"会以牺牲有用性为代价</h3>
+<p>v1 下部分召回的问题只得到一句干巴巴的"资料中没有提到这一点"。改成"说明缺什么 + 给出已有部分"（v2）后：</p>
+<blockquote>资料中仅提到可以为智能体添加开场白来增强对话体验，未说明具体设置步骤。可在编排页面左侧"人设与回复逻辑"面板中…<b>可尝试</b>在此处定义开场白。</blockquote>
+<p>双向验证：有用性显著提升，陷阱题仍 3/3 零编造。</p>
+
+<h3><span class="num">4</span>提示词只能引导倾向，不能保证行为</h3>
+<table>
+  <tr><th>口径</th><th>v2</th><th>v3</th></tr>
+  <tr><td>明确标注率</td><td>33%</td><td>50%</td></tr>
+  <tr><td>给出推断比例</td><td>67%</td><td>75%</td></tr>
+</table>
+<p>根因是两层随机性叠加：①模型要不要给推断 ②给了之后标不标注。由此提出改用<b>结构化输出（v4）</b>——用格式约束替代语义约束。</p>
+
+<h2>一个容易被误判的点：编造 ≠ 推断</h2>
+<table>
+  <tr><th></th><th>表现</th><th>用户后果</th></tr>
+  <tr><td><b>编造</b></td><td>把不存在的内容当事实："在设置→高级选项中配置开场白"</td><td>照做，然后失败</td></tr>
+  <tr><td><b>推断</b></td><td>基于真实片段外推 + 标注不确定："可尝试在人设与回复逻辑面板中定义"</td><td>知道要自己验证</td></tr>
+</table>
+<p class="muted">上面的优质回答逐句核对后 4/5 分句都是原文照搬，只有最后一句是标注过的推断——第一眼很容易被误判成幻觉。</p>
+<img src="screenshots/带标注的回答.png" alt="带标注的回答">
+
+<h2>实测截图</h2>
+<p>半真半假陷阱题（文档讲了"发布"、没讲 Slack）被正确拒答，且主动列出真实支持的渠道。可见 <code>knowledge_search</code> 工具真实调用：</p>
+<img src="screenshots/陷阱题拒答.png" alt="陷阱题拒答">
+
+<h2>输出非确定性：被量化的一个发现</h2>
+<p>同一道题、同一份资料、同一个提示词，每题开新会话跑 3 次，<b>三次回答内容一致率 0/3</b>。</p>
+<blockquote>任何基于单次运行的评测结论都不可靠。一次通过不代表系统稳，一次失败也不代表系统有问题。必须重复取分布。</blockquote>
+
+<h2>提示词演进记录</h2>
+<table>
+  <tr><th>版本</th><th>改动</th><th>实测结果</th></tr>
+  <tr><td>v1 基线</td><td>—</td><td>事实题 6/7，陷阱 3/3，部分召回场景回答过干</td></tr>
+  <tr><td>v2 拒答粒度优化</td><td>新增"说明缺什么 + 给出已有部分"</td><td>有用性↑，安全性不变；标注靠运气</td></tr>
+  <tr><td>v3 强制标注</td><td>新增"推断必须标注"</td><td>标注率 33%→50%，未达标</td></tr>
+  <tr><td>v4 结构化输出</td><td>改分两段输出</td><td>⚠️ 未实测，方案待验证</td></tr>
+</table>
+
+<h2>局限与未解决（如实列出）</h2>
+<ul>
+  <li>仅单一平台（扣子），未做跨平台横向对比（MaxKB 因 Docker、千帆因计费均未跑通）</li>
+  <li>样本量偏小：陷阱题仅 3 道，重复运行 3–4 次，结论应视为定性</li>
+  <li>v4 方案未验证；检索层参数（Top-K / 阈值）未做参数扫描</li>
+  <li>语料较小（约 3500 字），无法代表大规模知识库</li>
+  <li><b>多因素未做正交分离</b>：词汇匹配度、语料纯净度、提示词版本在重跑中同时变化。若要严格归因需 2×2×2 正交实验</li>
+</ul>
+
+<h2>复现方式</h2>
+<ol>
+  <li>扣子平台新建智能体 → 挂 <code>data/Coze官方文档资料集.txt</code> 为知识库</li>
+  <li>提示词用 <code>prompts/</code> 下任一版本</li>
+  <li>按 10 题测试集提问</li>
+  <li><b>每道题开新会话</b>（连着问会污染结果）</li>
+</ol>
+
+<div class="ok">把局限写清楚，比把结论说满更可信。这份报告的价值，一半在结论，一半在"我是怎么发现自己错了的"。</div>
+
+<footer>本地作品集 · 完整原始记录见 <code>完整评测记录.md</code> · 语料与提示词见 <code>data/</code> 与 <code>prompts/</code></footer>
+
+</div>
+</body>
+</html>
